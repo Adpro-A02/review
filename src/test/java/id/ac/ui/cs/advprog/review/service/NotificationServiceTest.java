@@ -39,7 +39,6 @@ public class NotificationServiceTest {
                 .status(ReviewStatus.APPROVED)
                 .build();
 
-        // Redirect System.out to capture output
         System.setOut(new PrintStream(outContent));
     }
 

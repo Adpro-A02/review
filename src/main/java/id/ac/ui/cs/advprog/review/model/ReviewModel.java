@@ -1,10 +1,12 @@
 package id.ac.ui.cs.advprog.review.model;
 
+import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import lombok.*;
 import jakarta.persistence.*;
 import org.hibernate.annotations.GenericGenerator;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
 
 @Entity
 @Table(name = "reviews")

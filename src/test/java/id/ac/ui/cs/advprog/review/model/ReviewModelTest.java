@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.review.model;
 
+import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

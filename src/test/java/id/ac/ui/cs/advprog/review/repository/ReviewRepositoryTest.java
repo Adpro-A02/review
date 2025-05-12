@@ -1,7 +1,7 @@
 package id.ac.ui.cs.advprog.review.repository;
 
 import id.ac.ui.cs.advprog.review.model.ReviewModel;
-import id.ac.ui.cs.advprog.review.model.ReviewStatus;
+import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;

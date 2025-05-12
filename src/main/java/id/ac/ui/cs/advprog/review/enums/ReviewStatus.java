@@ -1,4 +1,4 @@
-package id.ac.ui.cs.advprog.review.model;
+package id.ac.ui.cs.advprog.review.enums;
 
 public enum ReviewStatus {
     APPROVED,

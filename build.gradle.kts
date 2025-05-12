@@ -31,6 +31,7 @@ val junitJupiterVersion = "5.9.1"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
@@ -38,7 +39,10 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    runtimeOnly("com.h2database:h2")
+    implementation("org.postgresql:postgresql:42.6.0")
+    testImplementation("com.h2database:h2:2.2.220")
+    implementation ("jakarta.validation:jakarta.validation-api:3.0.2")
+
 }
 
 tasks.register<Test>("unitTest") {

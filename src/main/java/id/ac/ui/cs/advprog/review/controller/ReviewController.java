@@ -5,7 +5,6 @@ import id.ac.ui.cs.advprog.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -23,7 +22,6 @@ public class ReviewController {
 
     @PutMapping("/{id}")
     public ReviewModel updateReview(@PathVariable UUID id, @RequestBody ReviewModel request) {
-
         request.setId(id);
         return reviewService.updateReview(request);
     }

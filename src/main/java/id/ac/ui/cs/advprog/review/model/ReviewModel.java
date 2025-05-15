@@ -42,7 +42,7 @@ public class ReviewModel {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReviewStatus status;
+    private ReviewStatus status = ReviewStatus.APPROVED;
 
     @Version
     @Column(name = "version")

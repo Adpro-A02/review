@@ -62,6 +62,15 @@ public class ReviewRepository {
     public List<ReviewModel> findAllByStatus(ReviewStatus status) {
         TypedQuery<ReviewModel> query = entityManager.createQuery(
                 "SELECT r FROM ReviewModel r WHERE r.status = :status", ReviewModel.class);
+        query.setParameter("status", status.name());
+        return query.getResultList();
+    }
+
+    public List<ReviewModel> findAllByEventIdAndStatus(UUID eventId, ReviewStatus status) {
+        TypedQuery<ReviewModel> query = entityManager.createQuery(
+                "SELECT r FROM ReviewModel r WHERE r.eventId = :eventId AND r.status = :status",
+                ReviewModel.class);
+        query.setParameter("eventId", eventId);
         query.setParameter("status", status);
         return query.getResultList();
     }

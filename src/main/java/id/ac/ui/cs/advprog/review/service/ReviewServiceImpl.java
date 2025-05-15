@@ -58,7 +58,7 @@ public class ReviewServiceImpl implements ReviewService{
         }
 
         if (!validateReview(review)) {
-            throw new RuntimeException("Review tidak valid dan tidak bisa diapprove");
+            throw new RuntimeException("Review tidak valid dan tidak bisa di-approve.");
         }
 
         try {
@@ -71,19 +71,29 @@ public class ReviewServiceImpl implements ReviewService{
     }
 
     public boolean validateReview(ReviewModel review) {
-        return review.getRating() != null && review.getRating() >= 1 && review.getRating() <= 5;
+        return review.getRating() != null
+                && review.getRating() >= 1
+                && review.getRating() <= 5
+                && review.getComment() != null
+                && !review.getComment().trim().isEmpty();
     }
 
     public Double calculateEventAverageRating(UUID eventId) {
         try {
-            List<ReviewModel> reviews = repository.findAllByStatus(ReviewStatus.APPROVED);
+            List<ReviewModel> reviews = repository.findAllByEventIdAndStatus(eventId, ReviewStatus.APPROVED);
+            System.out.println("Reviews found: " + reviews.size());
+            for (ReviewModel r : reviews) {
+                System.out.println("Review rating: " + r.getRating() + ", eventId: " + r.getEventId());
+            }
+            if (reviews.isEmpty()) {
+                return 0.0;
+            }
             return reviews.stream()
-                    .filter(r -> r.getEventId().equals(eventId))
                     .mapToInt(ReviewModel::getRating)
                     .average()
                     .orElse(0.0);
         } catch (PersistenceException e) {
-            throw new RuntimeException("Error calculating average rating: " + e.getMessage(), e);
+            throw new RuntimeException("Error saat menghitung rata-rata rating: " + e.getMessage(), e);
         }
     }
 
@@ -91,7 +101,7 @@ public class ReviewServiceImpl implements ReviewService{
         try {
             return repository.findAllByEventId(eventId);
         } catch (PersistenceException e) {
-            throw new RuntimeException("Error retrieving reviews: " + e.getMessage(), e);
+            throw new RuntimeException("Error saat mengambil reviews: " + e.getMessage(), e);
         }
     }
 }

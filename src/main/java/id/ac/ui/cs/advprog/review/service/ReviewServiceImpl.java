@@ -1,0 +1,97 @@
+package id.ac.ui.cs.advprog.review.service;
+
+import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
+import id.ac.ui.cs.advprog.review.model.ReviewModel;
+import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import jakarta.persistence.PersistenceException;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class ReviewServiceImpl implements ReviewService{
+
+    private final ReviewRepository repository;
+    private final NotificationService notificationService;
+
+    public ReviewModel createReview(ReviewModel review) {
+        if (validateReview(review)) {
+            try {
+                ReviewModel savedReview = repository.save(review);
+                notificationService.sendReviewCreatedNotification(savedReview);
+                return savedReview;
+            } catch (PersistenceException e) {
+                throw new RuntimeException("Error saving review: " + e.getMessage(), e);
+            }
+        }
+        throw new RuntimeException("Review tidak valid");
+    }
+
+    public ReviewModel updateReview(ReviewModel review) {
+        if (validateReview(review)) {
+            try {
+                ReviewModel updatedReview = repository.save(review);
+                notificationService.sendReviewApprovedNotification(updatedReview);
+                return updatedReview;
+            } catch (PersistenceException e) {
+                throw new RuntimeException("Error updating review: " + e.getMessage(), e);
+            }
+        }
+        throw new RuntimeException("Review tidak valid untuk diperbarui");
+    }
+
+    public void deleteReview(UUID id) {
+        try {
+            repository.deleteById(id);
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error deleting review: " + e.getMessage(), e);
+        }
+    }
+
+    public ReviewModel approveReview(UUID reviewId) {
+        ReviewModel review = repository.findById(reviewId);
+        if (review == null) {
+            throw new RuntimeException("Review tidak ditemukan dengan id: " + reviewId);
+        }
+
+        if (!validateReview(review)) {
+            throw new RuntimeException("Review tidak valid dan tidak bisa diapprove");
+        }
+
+        try {
+            ReviewModel updatedReview = repository.updateStatus(reviewId, ReviewStatus.APPROVED);
+            notificationService.sendReviewApprovedNotification(updatedReview);
+            return updatedReview;
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Gagal approve review: " + e.getMessage(), e);
+        }
+    }
+
+    public boolean validateReview(ReviewModel review) {
+        return review.getRating() != null && review.getRating() >= 1 && review.getRating() <= 5;
+    }
+
+    public Double calculateEventAverageRating(UUID eventId) {
+        try {
+            List<ReviewModel> reviews = repository.findAllByStatus(ReviewStatus.APPROVED);
+            return reviews.stream()
+                    .filter(r -> r.getEventId().equals(eventId))
+                    .mapToInt(ReviewModel::getRating)
+                    .average()
+                    .orElse(0.0);
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error calculating average rating: " + e.getMessage(), e);
+        }
+    }
+
+    public List<ReviewModel> getReviewsByEventId(UUID eventId) {
+        try {
+            return repository.findAllByEventId(eventId);
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error retrieving reviews: " + e.getMessage(), e);
+        }
+    }
+}

@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class NotificationService {
-
     public void sendReviewCreatedNotification(ReviewModel review) {
         System.out.println("Notifikasi: Review untuk acara " + review.getEventId() + " dibuat.");
     }

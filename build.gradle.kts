@@ -42,6 +42,7 @@ dependencies {
     implementation("org.postgresql:postgresql:42.6.0")
     testImplementation("com.h2database:h2:2.2.220")
     implementation ("jakarta.validation:jakarta.validation-api:3.0.2")
+    implementation("mysql:mysql-connector-java:8.0.29")
 
 }
 

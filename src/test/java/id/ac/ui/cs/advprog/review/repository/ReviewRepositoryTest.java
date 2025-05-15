@@ -1,91 +1,154 @@
 package id.ac.ui.cs.advprog.review.repository;
 
-import id.ac.ui.cs.advprog.review.model.ReviewModel;
 import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
+import id.ac.ui.cs.advprog.review.model.ReviewModel;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.mockito.*;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
 public class ReviewRepositoryTest {
 
-    @Mock
-    private ReviewRepository reviewRepository;
+    @InjectMocks
+    private ReviewRepository repository;
 
-    private ReviewModel review;
-    private UUID reviewId;
+    @Mock
+    private EntityManager entityManager;
 
     @BeforeEach
-    public void setUp() {
+    void setup() {
         MockitoAnnotations.openMocks(this);
-        reviewId = UUID.randomUUID();
-        review = ReviewModel.builder()
-                .id(reviewId)
-                .eventId(UUID.randomUUID())
-                .userId(UUID.randomUUID())
-                .rating(5)
-                .comment("Great event!")
-                .createdDate(LocalDateTime.now())
-                .updatedDate(LocalDateTime.now())
-                .status(ReviewStatus.APPROVED)
-                .build();
     }
 
     @Test
-    public void testFindById() {
-        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(review));
-        Optional<ReviewModel> foundReview = reviewRepository.findById(reviewId);
-        assertTrue(foundReview.isPresent());
-        assertEquals(reviewId, foundReview.get().getId());
-        verify(reviewRepository, times(1)).findById(reviewId);
+    void save_persist_whenIdNull() {
+        ReviewModel review = ReviewModel.builder().id(null).build();
+
+        ReviewModel result = repository.save(review);
+
+        verify(entityManager).persist(review);
+        assertThat(result).isSameAs(review);
     }
 
     @Test
-    public void testFindAll() {
-        List<ReviewModel> reviews = Arrays.asList(review);
-        when(reviewRepository.findAll()).thenReturn(reviews);
-        List<ReviewModel> foundReviews = reviewRepository.findAll();
+    void save_merge_whenIdNotNull() {
+        ReviewModel review = ReviewModel.builder().id(UUID.randomUUID()).build();
+        when(entityManager.merge(review)).thenReturn(review);
 
-        assertNotNull(foundReviews);
-        assertEquals(1, foundReviews.size());
-        verify(reviewRepository, times(1)).findAll();
+        ReviewModel result = repository.save(review);
+
+        verify(entityManager).merge(review);
+        assertThat(result).isSameAs(review);
     }
 
     @Test
-    public void testSave() {
-        when(reviewRepository.save(review)).thenReturn(review);
-        ReviewModel savedReview = reviewRepository.save(review);
-        assertNotNull(savedReview);
-        assertEquals(review.getId(), savedReview.getId());
-        verify(reviewRepository, times(1)).save(review);
+    void updateStatus_success() {
+        UUID id = UUID.randomUUID();
+        ReviewModel review = ReviewModel.builder().id(id).status(ReviewStatus.REJECTED).build();
+
+        when(entityManager.find(ReviewModel.class, id)).thenReturn(review);
+        when(entityManager.merge(review)).thenReturn(review);
+
+        ReviewModel updated = repository.updateStatus(id, ReviewStatus.APPROVED);
+
+        assertThat(updated.getStatus()).isEqualTo(ReviewStatus.APPROVED);
+        verify(entityManager).merge(review);
     }
 
     @Test
-    public void testDelete() {
-        doNothing().when(reviewRepository).deleteById(reviewId);
-        reviewRepository.deleteById(reviewId);
-        verify(reviewRepository, times(1)).deleteById(reviewId);
+    void updateStatus_notFound_throws() {
+        UUID id = UUID.randomUUID();
+        when(entityManager.find(ReviewModel.class, id)).thenReturn(null);
+
+        assertThatThrownBy(() -> repository.updateStatus(id, ReviewStatus.APPROVED))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Review tidak ditemukan");
     }
 
     @Test
-    public void testFindAllByStatus() {
-        List<ReviewModel> activeReviews = Arrays.asList(review);
-        when(reviewRepository.findAllByStatus(ReviewStatus.APPROVED)).thenReturn(activeReviews);
-        List<ReviewModel> foundActiveReviews = reviewRepository.findAllByStatus(ReviewStatus.APPROVED);
+    void deleteById_found_removes() {
+        UUID id = UUID.randomUUID();
+        ReviewModel review = ReviewModel.builder().id(id).build();
+        when(entityManager.find(ReviewModel.class, id)).thenReturn(review);
 
-        assertNotNull(foundActiveReviews);
-        assertEquals(1, foundActiveReviews.size());
-        verify(reviewRepository, times(1)).findAllByStatus(ReviewStatus.APPROVED);
+        repository.deleteById(id);
+
+        verify(entityManager).remove(review);
+    }
+
+    @Test
+    void deleteById_notFound_noRemove() {
+        UUID id = UUID.randomUUID();
+        when(entityManager.find(ReviewModel.class, id)).thenReturn(null);
+
+        repository.deleteById(id);
+
+        verify(entityManager, never()).remove(any());
+    }
+
+    @Test
+    void findById_returnsEntity() {
+        UUID id = UUID.randomUUID();
+        ReviewModel review = ReviewModel.builder().id(id).build();
+        when(entityManager.find(ReviewModel.class, id)).thenReturn(review);
+
+        ReviewModel result = repository.findById(id);
+
+        assertThat(result).isSameAs(review);
+    }
+
+    @Test
+    void findAll_returnsList() {
+        List<ReviewModel> reviews = List.of(
+                ReviewModel.builder().id(UUID.randomUUID()).build(),
+                ReviewModel.builder().id(UUID.randomUUID()).build()
+        );
+        TypedQuery<ReviewModel> query = mock(TypedQuery.class);
+        when(entityManager.createQuery("SELECT r FROM ReviewModel r", ReviewModel.class)).thenReturn(query);
+        when(query.getResultList()).thenReturn(reviews);
+
+        List<ReviewModel> result = repository.findAll();
+
+        assertThat(result).isEqualTo(reviews);
+    }
+
+    @Test
+    void findAllByEventId_returnsList() {
+        UUID eventId = UUID.randomUUID();
+        List<ReviewModel> reviews = List.of(
+                ReviewModel.builder().eventId(eventId).build()
+        );
+        TypedQuery<ReviewModel> query = mock(TypedQuery.class);
+        when(entityManager.createQuery("SELECT r FROM ReviewModel r WHERE r.eventId = :eventId", ReviewModel.class))
+                .thenReturn(query);
+        when(query.setParameter("eventId", eventId)).thenReturn(query);
+        when(query.getResultList()).thenReturn(reviews);
+
+        List<ReviewModel> result = repository.findAllByEventId(eventId);
+
+        assertThat(result).isEqualTo(reviews);
+    }
+
+    @Test
+    void findAllByStatus_returnsList() {
+        ReviewStatus status = ReviewStatus.APPROVED;
+        List<ReviewModel> reviews = List.of(
+                ReviewModel.builder().status(status).build()
+        );
+        TypedQuery<ReviewModel> query = mock(TypedQuery.class);
+        when(entityManager.createQuery("SELECT r FROM ReviewModel r WHERE r.status = :status", ReviewModel.class))
+                .thenReturn(query);
+        when(query.setParameter("status", status)).thenReturn(query);
+        when(query.getResultList()).thenReturn(reviews);
+
+        List<ReviewModel> result = repository.findAllByStatus(status);
+
+        assertThat(result).isEqualTo(reviews);
     }
 }

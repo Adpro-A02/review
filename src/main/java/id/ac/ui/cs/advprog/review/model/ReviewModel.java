@@ -43,4 +43,8 @@ public class ReviewModel {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReviewStatus status;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 }

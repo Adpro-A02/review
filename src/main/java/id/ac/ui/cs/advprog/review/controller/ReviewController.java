@@ -1,14 +1,18 @@
+// src/main/java/id/ac/ui/cs/advprog/review/controller/ReviewController.java
 package id.ac.ui.cs.advprog.review.controller;
 
 import id.ac.ui.cs.advprog.review.dto.ReviewDTO;
+import id.ac.ui.cs.advprog.review.dto.ReviewResponseDTO;
+import id.ac.ui.cs.advprog.review.dto.ReviewsByEventResponseDTO;
+import id.ac.ui.cs.advprog.review.dto.AverageRatingResponseDTO;
 import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import id.ac.ui.cs.advprog.review.model.ReviewModel;
 import id.ac.ui.cs.advprog.review.service.ReviewService;
 import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,20 +23,6 @@ import java.util.stream.Collectors;
 public class ReviewController {
     private final ReviewService reviewService;
     private final ReviewRepository repository;
-
-    private ReviewDTO toDTO(ReviewModel model) {
-        if (model == null) return null;
-        return ReviewDTO.builder()
-                .id(model.getId())
-                .eventId(model.getEventId())
-                .userId(model.getUserId())
-                .rating(model.getRating())
-                .comment(model.getComment())
-                .createdDate(model.getCreatedDate())
-                .updatedDate(model.getUpdatedDate())
-                .status(model.getStatus())
-                .build();
-    }
 
     private ReviewModel toEntity(ReviewDTO dto) {
         if (dto == null) return null;
@@ -48,50 +38,100 @@ public class ReviewController {
                 .build();
     }
 
+    private ReviewDTO toDTO(ReviewModel model) {
+        if (model == null) return null;
+        return ReviewDTO.builder()
+                .id(model.getId())
+                .eventId(model.getEventId())
+                .userId(model.getUserId())
+                .rating(model.getRating())
+                .comment(model.getComment())
+                .createdDate(model.getCreatedDate())
+                .updatedDate(model.getUpdatedDate())
+                .status(model.getStatus())
+                .build();
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ReviewDTO createReview(@RequestBody ReviewDTO request) {
+    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request) {
         ReviewModel model = toEntity(request);
         if (model.getStatus() == null) {
             model.setStatus(ReviewStatus.APPROVED);
         }
         ReviewModel saved = reviewService.createReview(model);
-        return toDTO(saved);
+        ReviewDTO dto = toDTO(saved);
+        return ReviewResponseDTO.<ReviewDTO>builder()
+                .success(true)
+                .message("Review berhasil dibuat")
+                .data(dto)
+                .build();
     }
 
     @PutMapping("/{id}")
-    public ReviewDTO updateReview(@PathVariable UUID id, @RequestBody ReviewDTO request) {
-        ReviewModel existingReview = repository.findById(id);
-        if (existingReview == null) {
-            throw new RuntimeException("Review dengan ID " + id + " tidak ditemukan");
+    public ReviewResponseDTO<ReviewDTO> updateReview(
+            @PathVariable UUID id,
+            @RequestBody ReviewDTO request
+    ) {
+        ReviewModel existing = repository.findById(id);
+        if (existing == null) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message("Review dengan ID " + id + " tidak ditemukan")
+                    .data(null)
+                    .build();
         }
+        if (request.getRating() != null) existing.setRating(request.getRating());
+        if (request.getComment() != null) existing.setComment(request.getComment());
 
-        if (request.getRating() != null) {
-            existingReview.setRating(request.getRating());
-        }
-        if (request.getComment() != null) {
-            existingReview.setComment(request.getComment());
-        }
-
-        ReviewModel updated = reviewService.updateReview(existingReview);
-        return toDTO(updated);
+        ReviewModel updated = reviewService.updateReview(existing);
+        ReviewDTO dto = toDTO(updated);
+        return ReviewResponseDTO.<ReviewDTO>builder()
+                .success(true)
+                .message("Review berhasil diperbarui")
+                .data(dto)
+                .build();
     }
 
-    @DeleteMapping("/delete-review/{id}")
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteReview(@PathVariable UUID id) {
+    public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id) {
         reviewService.deleteReview(id);
+        return ReviewResponseDTO.<Void>builder()
+                .success(true)
+                .message("Review berhasil dihapus")
+                .data(null)
+                .build();
     }
 
     @GetMapping("/event/{eventId}")
-    public List<ReviewDTO> getReviewsByEventId(@PathVariable UUID eventId) {
-        List<ReviewModel> models = reviewService.getReviewsByEventId(eventId);
-        return models.stream().map(this::toDTO).collect(Collectors.toList());
+    public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsByEventId(@PathVariable UUID eventId) {
+        List<ReviewDTO> list = reviewService.getReviewsByEventId(eventId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+        ReviewsByEventResponseDTO payload = ReviewsByEventResponseDTO.builder()
+                .eventId(eventId)
+                .reviews(list)
+                .build();
+        return ReviewResponseDTO.<ReviewsByEventResponseDTO>builder()
+                .success(true)
+                .message("Daftar review untuk event " + eventId)
+                .data(payload)
+                .build();
     }
 
     @GetMapping("/event/{eventId}/average")
-    public ResponseEntity<Double> getAverageRating(@PathVariable UUID eventId) {
-        Double average = reviewService.calculateEventAverageRating(eventId);
-        return ResponseEntity.ok(average);
+    public ReviewResponseDTO<AverageRatingResponseDTO> getAverageRating(@PathVariable UUID eventId) {
+        Double avg = reviewService.calculateEventAverageRating(eventId);
+        AverageRatingResponseDTO payload = AverageRatingResponseDTO.builder()
+                .eventId(eventId)
+                .averageRating(avg)
+                .build();
+        return ReviewResponseDTO.<AverageRatingResponseDTO>builder()
+                .success(true)
+                .message("Rata-rata rating untuk event " + eventId)
+                .data(payload)
+                .build();
     }
 }

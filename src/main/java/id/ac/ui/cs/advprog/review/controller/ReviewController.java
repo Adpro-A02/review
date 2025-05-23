@@ -1,4 +1,3 @@
-// src/main/java/id/ac/ui/cs/advprog/review/controller/ReviewController.java
 package id.ac.ui.cs.advprog.review.controller;
 
 import id.ac.ui.cs.advprog.review.dto.ReviewDTO;

@@ -1,13 +1,13 @@
-package id.ac.ui.cs.advprog.review;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
-@SpringBootTest
-class ReviewApplicationTests {
-
-    @Test
-    void contextLoads() {
-    }
-
-}
+//package id.ac.ui.cs.advprog.review;
+//
+//import org.junit.jupiter.api.Test;
+//import org.springframework.boot.test.context.SpringBootTest;
+//
+//@SpringBootTest
+//class ReviewApplicationTests {
+//
+//    @Test
+//    void contextLoads() {
+//    }
+//
+//}

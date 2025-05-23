@@ -4,12 +4,13 @@ import id.ac.ui.cs.advprog.review.dto.*;
 import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import id.ac.ui.cs.advprog.review.model.ReviewModel;
 import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
-import id.ac.ui.cs.advprog.review.service.ReviewServiceImpl;
+import id.ac.ui.cs.advprog.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import java.util.concurrent.CompletableFuture;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
 public class ReviewController {
-    private final ReviewServiceImpl reviewService;
+    private final ReviewService reviewService;
     private final ReviewRepository repository;
 
     private ReviewModel toEntity(ReviewDTO dto) {
@@ -53,19 +54,21 @@ public class ReviewController {
     @PostMapping
     @PreAuthorize("hasAuthority('User')")
     @ResponseStatus(HttpStatus.CREATED)
-    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request, Authentication auth) {
+    public CompletableFuture<ReviewResponseDTO<ReviewDTO>> createReview(@RequestBody ReviewDTO request, Authentication auth) {
         request.setUserId(UUID.fromString(auth.getName()));
         ReviewModel model = toEntity(request);
         if (model.getStatus() == null) {
             model.setStatus(ReviewStatus.APPROVED);
         }
-        ReviewModel saved = reviewService.createReview(model);
-        ReviewDTO dto = toDTO(saved);
-        return ReviewResponseDTO.<ReviewDTO>builder()
-                .success(true)
-                .message("Review berhasil dibuat")
-                .data(dto)
-                .build();
+        return reviewService.createReview(model)
+                .thenApply(saved -> {
+                    ReviewDTO dto = toDTO(saved);
+                    return ReviewResponseDTO.<ReviewDTO>builder()
+                            .success(true)
+                            .message("Review berhasil dibuat")
+                            .data(dto)
+                            .build();
+                });
     }
 
     @PutMapping("update/{id}")

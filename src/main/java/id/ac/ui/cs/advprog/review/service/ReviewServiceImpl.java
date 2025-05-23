@@ -5,10 +5,13 @@ import id.ac.ui.cs.advprog.review.model.ReviewModel;
 import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import org.springframework.scheduling.annotation.Async;
+import java.util.concurrent.CompletableFuture;
 import jakarta.persistence.PersistenceException;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -17,17 +20,11 @@ public class ReviewServiceImpl implements ReviewService{
     private final ReviewRepository repository;
     private final NotificationService notificationService;
 
-    public ReviewModel createReview(ReviewModel review) {
-        if (validateReview(review)) {
-            try {
-                ReviewModel savedReview = repository.save(review);
-                notificationService.sendReviewCreatedNotification(savedReview);
-                return savedReview;
-            } catch (PersistenceException e) {
-                throw new RuntimeException("Error saving review: " + e.getMessage(), e);
-            }
-        }
-        throw new RuntimeException("Review tidak valid");
+    @Async
+    @Transactional
+    public CompletableFuture<ReviewModel> createReview(ReviewModel model) {
+        ReviewModel saved = repository.save(model);
+        return CompletableFuture.completedFuture(saved);
     }
 
     public ReviewModel updateReview(ReviewModel review) {

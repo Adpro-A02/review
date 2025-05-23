@@ -104,4 +104,17 @@ public class ReviewServiceImpl implements ReviewService{
             throw new RuntimeException("Error saat mengambil reviews: " + e.getMessage(), e);
         }
     }
+
+    public List<ReviewModel> getReviewsForOrganizer(UUID eventId, UUID organizerId) {
+        try {
+
+            List<ReviewModel> reviews = repository.findAllByEventIdAndOrganizerId(eventId, organizerId);
+            if (reviews.isEmpty()) {
+                throw new RuntimeException("Tidak ada review untuk event yang dikelola oleh organizer ini.");
+            }
+            return reviews;
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error saat mengambil review untuk organizer: " + e.getMessage(), e);
+        }
+    }
 }

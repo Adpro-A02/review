@@ -35,7 +35,6 @@ public class ReviewRepository {
         return entityManager.merge(review);
     }
 
-
     public void deleteById(UUID id) {
         ReviewModel review = entityManager.find(ReviewModel.class, id);
         if (review != null) {
@@ -56,6 +55,15 @@ public class ReviewRepository {
         TypedQuery<ReviewModel> query = entityManager.createQuery(
                 "SELECT r FROM ReviewModel r WHERE r.eventId = :eventId", ReviewModel.class);
         query.setParameter("eventId", eventId);
+        return query.getResultList();
+    }
+
+    public List<ReviewModel> findAllByEventIdAndOrganizerId(UUID eventId, UUID organizerId) {
+        TypedQuery<ReviewModel> query = entityManager.createQuery(
+                "SELECT r FROM ReviewModel r WHERE r.eventId = :eventId AND r.userId = :organizerId",
+                ReviewModel.class);
+        query.setParameter("eventId", eventId);
+        query.setParameter("organizerId", organizerId);
         return query.getResultList();
     }
 

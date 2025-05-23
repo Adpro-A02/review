@@ -1,15 +1,14 @@
 package id.ac.ui.cs.advprog.review.controller;
 
-import id.ac.ui.cs.advprog.review.dto.ReviewDTO;
-import id.ac.ui.cs.advprog.review.dto.ReviewResponseDTO;
-import id.ac.ui.cs.advprog.review.dto.ReviewsByEventResponseDTO;
-import id.ac.ui.cs.advprog.review.dto.AverageRatingResponseDTO;
+import id.ac.ui.cs.advprog.review.dto.*;
 import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import id.ac.ui.cs.advprog.review.model.ReviewModel;
-import id.ac.ui.cs.advprog.review.service.ReviewService;
 import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
+import id.ac.ui.cs.advprog.review.service.ReviewServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,7 +19,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
 public class ReviewController {
-    private final ReviewService reviewService;
+    private final ReviewServiceImpl reviewService;
     private final ReviewRepository repository;
 
     private ReviewModel toEntity(ReviewDTO dto) {
@@ -52,8 +51,10 @@ public class ReviewController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('User')")
     @ResponseStatus(HttpStatus.CREATED)
-    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request) {
+    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request, Authentication auth) {
+        request.setUserId(UUID.fromString(auth.getName()));
         ReviewModel model = toEntity(request);
         if (model.getStatus() == null) {
             model.setStatus(ReviewStatus.APPROVED);
@@ -67,11 +68,11 @@ public class ReviewController {
                 .build();
     }
 
-    @PutMapping("/{id}")
-    public ReviewResponseDTO<ReviewDTO> updateReview(
-            @PathVariable UUID id,
-            @RequestBody ReviewDTO request
-    ) {
+    @PutMapping("update/{id}")
+    @PreAuthorize("hasAuthority('User')")
+    public ReviewResponseDTO<ReviewDTO> updateReview(@PathVariable UUID id,
+                                                     @RequestBody ReviewDTO request,
+                                                     Authentication auth) {
         ReviewModel existing = repository.findById(id);
         if (existing == null) {
             return ReviewResponseDTO.<ReviewDTO>builder()
@@ -80,6 +81,13 @@ public class ReviewController {
                     .data(null)
                     .build();
         }
+        if (!existing.getUserId().toString().equals(auth.getName())) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message("Tidak bisa memperbarui review milik orang lain")
+                    .build();
+        }
+
         if (request.getRating() != null) existing.setRating(request.getRating());
         if (request.getComment() != null) existing.setComment(request.getComment());
 
@@ -92,18 +100,34 @@ public class ReviewController {
                 .build();
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("delete/{id}")
+    @PreAuthorize("hasAuthority('User') or hasAuthority('Admin')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id) {
+    public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id, Authentication auth) {
+        ReviewModel existing = repository.findById(id);
+        if (existing == null) {
+            return ReviewResponseDTO.<Void>builder()
+                    .success(false)
+                    .message("Review dengan ID " + id + " tidak ditemukan")
+                    .build();
+        }
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Admin"));
+        boolean isOwner = existing.getUserId().toString().equals(auth.getName());
+        if (!isAdmin && !isOwner) {
+            return ReviewResponseDTO.<Void>builder()
+                    .success(false)
+                    .message("Tidak bisa menghapus review milik orang lain")
+                    .build();
+        }
         reviewService.deleteReview(id);
         return ReviewResponseDTO.<Void>builder()
                 .success(true)
                 .message("Review berhasil dihapus")
-                .data(null)
                 .build();
     }
 
     @GetMapping("/event/{eventId}")
+    @PreAuthorize("hasAuthority('User') or hasAuthority('Admin') or permitAll()")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsByEventId(@PathVariable UUID eventId) {
         List<ReviewDTO> list = reviewService.getReviewsByEventId(eventId)
                 .stream()
@@ -120,7 +144,29 @@ public class ReviewController {
                 .build();
     }
 
+    @GetMapping("/event/{eventId}/organizer")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsForOrganizer(@PathVariable UUID eventId, Authentication auth) {
+        UUID organizerId = UUID.fromString(auth.getName());
+        List<ReviewDTO> list = reviewService.getReviewsForOrganizer(eventId, organizerId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        ReviewsByEventResponseDTO payload = ReviewsByEventResponseDTO.builder()
+                .eventId(eventId)
+                .reviews(list)
+                .build();
+
+        return ReviewResponseDTO.<ReviewsByEventResponseDTO>builder()
+                .success(true)
+                .message("Daftar review untuk organizer")
+                .data(payload)
+                .build();
+    }
+
     @GetMapping("/event/{eventId}/average")
+    // @PreAuthorize("hasAuthority('Admin')")
     public ReviewResponseDTO<AverageRatingResponseDTO> getAverageRating(@PathVariable UUID eventId) {
         Double avg = reviewService.calculateEventAverageRating(eventId);
         AverageRatingResponseDTO payload = AverageRatingResponseDTO.builder()

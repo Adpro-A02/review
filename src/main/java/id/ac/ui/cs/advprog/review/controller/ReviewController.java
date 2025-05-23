@@ -11,6 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.concurrent.CompletableFuture;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 
 import java.util.List;
 import java.util.UUID;
@@ -54,21 +56,21 @@ public class ReviewController {
     @PostMapping
     @PreAuthorize("hasAuthority('User')")
     @ResponseStatus(HttpStatus.CREATED)
-    public CompletableFuture<ReviewResponseDTO<ReviewDTO>> createReview(@RequestBody ReviewDTO request, Authentication auth) {
+    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request, Authentication auth) {
         request.setUserId(UUID.fromString(auth.getName()));
         ReviewModel model = toEntity(request);
         if (model.getStatus() == null) {
             model.setStatus(ReviewStatus.APPROVED);
         }
-        return reviewService.createReview(model)
-                .thenApply(saved -> {
-                    ReviewDTO dto = toDTO(saved);
-                    return ReviewResponseDTO.<ReviewDTO>builder()
-                            .success(true)
-                            .message("Review berhasil dibuat")
-                            .data(dto)
-                            .build();
-                });
+
+        ReviewModel saved = reviewService.createReview(model).join();
+        ReviewDTO dto = toDTO(saved);
+
+        return ReviewResponseDTO.<ReviewDTO>builder()
+                .success(true)
+                .message("Review berhasil dibuat")
+                .data(dto)
+                .build();
     }
 
     @PutMapping("update/{id}")

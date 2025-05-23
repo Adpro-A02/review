@@ -17,7 +17,6 @@ public class ReviewRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Transactional
     public ReviewModel save(ReviewModel review) {
         if (review.getId() == null) {
             entityManager.persist(review);

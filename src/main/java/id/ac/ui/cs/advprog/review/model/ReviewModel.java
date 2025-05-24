@@ -15,7 +15,6 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(of = "id")
 public class ReviewModel {
-
     @Id
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
@@ -27,6 +26,9 @@ public class ReviewModel {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+
+    @Column(name = "organizer_id") 
+    private UUID organizerId;
 
     @Column(nullable = false)
     private Integer rating;

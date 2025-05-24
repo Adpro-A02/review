@@ -22,19 +22,31 @@ public class AuthController {
         String password = body.get("password");
 
         Map<String, UUID> userIds = Map.of(
-                "user", UUID.fromString("f0e9d8c7-b6a5-4321-fedc-ba9876543210"),
-                "admin", UUID.fromString("a1b2c3d4-e5f6-7890-1234-567890abcdef"),
-                "organizer", UUID.fromString("123e4567-e89b-12d3-a456-426614174000")
+                "user1", UUID.fromString("f0e9d8c7-b6a5-4321-fedc-ba9876543210"),
+                "user2", UUID.fromString("11111111-2222-3333-4444-555555555555"),
+                "user3", UUID.fromString("99999999-8888-7777-6666-555555555555"),
+                "organizer1", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
+                "organizer2", UUID.fromString("bbbbbbbb-cccc-dddd-eeee-ffffffffffff"),
+                "admin1", UUID.fromString("a1b2c3d4-e5f6-7890-1234-567890abcdef")
         );
 
-        if ("user".equals(username) && "userpass".equals(password)) {
-            String token = jwtUtil.generateToken(userIds.get("user").toString(), "User");
+        if ("user1".equals(username) && "user1pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("user1").toString(), "User");
             return ResponseEntity.ok(Map.of("token", token));
-        } else if ("admin".equals(username) && "adminpass".equals(password)) {
-            String token = jwtUtil.generateToken(userIds.get("admin").toString(), "Admin");
+        } else if ("user2".equals(username) && "user2pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("user2").toString(), "User");
             return ResponseEntity.ok(Map.of("token", token));
-        } else if ("organizer".equals(username) && "organizerpass".equals(password)) {
-            String token = jwtUtil.generateToken(userIds.get("organizer").toString(), "Organizer");
+        } else if ("user3".equals(username) && "user3pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("user3").toString(), "User");
+            return ResponseEntity.ok(Map.of("token", token));
+        } else if ("organizer1".equals(username) && "organizer1pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("organizer1").toString(), "Organizer");
+            return ResponseEntity.ok(Map.of("token", token));
+        } else if ("organizer2".equals(username) && "organizer2pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("organizer2").toString(), "Organizer");
+            return ResponseEntity.ok(Map.of("token", token));
+        } else if ("admin1".equals(username) && "admin1pass".equals(password)) {
+            String token = jwtUtil.generateToken(userIds.get("admin1").toString(), "Admin");
             return ResponseEntity.ok(Map.of("token", token));
         }
 

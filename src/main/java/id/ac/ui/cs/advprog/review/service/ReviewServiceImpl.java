@@ -6,6 +6,8 @@ import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Async;
+
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import jakarta.persistence.PersistenceException;
 import java.util.List;
@@ -23,6 +25,11 @@ public class ReviewServiceImpl implements ReviewService{
     @Async
     @Transactional
     public CompletableFuture<ReviewModel> createReview(ReviewModel model) {
+        Optional<ReviewModel> existingReview = repository.findByUserIdAndEventId(model.getUserId(), model.getEventId());
+        if (existingReview.isPresent()) {
+            throw new IllegalStateException("User sudah pernah membuat review untuk event ini.");
+        }
+
         ReviewModel saved = repository.save(model);
         return CompletableFuture.completedFuture(saved);
     }
@@ -104,7 +111,6 @@ public class ReviewServiceImpl implements ReviewService{
 
     public List<ReviewModel> getReviewsForOrganizer(UUID eventId, UUID organizerId) {
         try {
-
             List<ReviewModel> reviews = repository.findAllByEventIdAndOrganizerId(eventId, organizerId);
             if (reviews.isEmpty()) {
                 throw new RuntimeException("Tidak ada review untuk event yang dikelola oleh organizer ini.");
@@ -112,6 +118,35 @@ public class ReviewServiceImpl implements ReviewService{
             return reviews;
         } catch (PersistenceException e) {
             throw new RuntimeException("Error saat mengambil review untuk organizer: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Override
+    @Transactional
+    public ReviewModel flagReview(UUID reviewId, String role) {
+        if (!"Organizer".equalsIgnoreCase(role)) {
+            throw new SecurityException("Hanya organizer yang dapat melakukan flag review.");
+        }
+
+        ReviewModel review = repository.findById(reviewId);
+        if (review == null) {
+            throw new IllegalArgumentException("Review tidak ditemukan dengan id " + reviewId);
+        }
+
+        if (review.getStatus() != ReviewStatus.APPROVED) {
+            throw new IllegalStateException("Review hanya bisa di-flag jika statusnya APPROVED.");
+        }
+
+        ReviewModel flaggedReview = repository.updateStatus(reviewId, ReviewStatus.FLAGGED);
+        return flaggedReview;
+    }
+
+    public List<ReviewModel> getReviewsByStatus(ReviewStatus status) {
+        try {
+            return repository.findAllByStatus(status);
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error saat mengambil review berdasarkan status: " + e.getMessage(), e);
         }
     }
 }

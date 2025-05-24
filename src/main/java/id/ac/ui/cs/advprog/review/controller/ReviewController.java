@@ -31,6 +31,7 @@ public class ReviewController {
                 .id(dto.getId())
                 .eventId(dto.getEventId())
                 .userId(dto.getUserId())
+                .organizerId(dto.getOrganizerId())
                 .rating(dto.getRating())
                 .comment(dto.getComment())
                 .createdDate(dto.getCreatedDate())
@@ -45,6 +46,7 @@ public class ReviewController {
                 .id(model.getId())
                 .eventId(model.getEventId())
                 .userId(model.getUserId())
+                .organizerId(model.getOrganizerId())
                 .rating(model.getRating())
                 .comment(model.getComment())
                 .createdDate(model.getCreatedDate())
@@ -52,7 +54,6 @@ public class ReviewController {
                 .status(model.getStatus())
                 .build();
     }
-
     @PostMapping
     @PreAuthorize("hasAuthority('User')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -149,7 +150,7 @@ public class ReviewController {
                 .build();
     }
 
-    @GetMapping("/event/{eventId}/organizer")
+    @GetMapping("/event-reviews/my/{eventId}")
     @PreAuthorize("hasAuthority('Organizer')")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsForOrganizer(@PathVariable UUID eventId, Authentication auth) {
         UUID organizerId = UUID.fromString(auth.getName());
@@ -184,4 +185,52 @@ public class ReviewController {
                 .data(payload)
                 .build();
     }
+
+    @PutMapping("/{reviewId}/flag")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewDTO> flagReview(@PathVariable UUID reviewId,
+                                                   Authentication auth) {
+        try {
+            String role = auth.getAuthorities().stream()
+                    .findFirst()
+                    .map(a -> a.getAuthority())
+                    .orElse("");
+
+            ReviewModel flaggedReview = reviewService.flagReview(reviewId, role);
+            ReviewDTO dto = toDTO(flaggedReview);
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Review berhasil di-flag.")
+                    .data(dto)
+                    .build();
+        } catch (SecurityException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
+    }
+
+    @GetMapping("/flagged")
+    @PreAuthorize("hasAuthority('Admin')")
+    public ReviewResponseDTO<List<ReviewDTO>> getFlaggedReviews() {
+        List<ReviewDTO> flaggedReviews = reviewService.getReviewsByStatus(ReviewStatus.FLAGGED)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return ReviewResponseDTO.<List<ReviewDTO>>builder()
+                .success(true)
+                .message("Daftar review dengan status FLAGGED")
+                .data(flaggedReviews)
+                .build();
+    }
+
 }

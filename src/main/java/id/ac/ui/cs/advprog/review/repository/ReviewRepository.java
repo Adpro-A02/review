@@ -9,6 +9,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -26,14 +27,21 @@ public class ReviewRepository {
         }
     }
 
+    @Transactional
     public ReviewModel updateStatus(UUID reviewId, ReviewStatus newStatus) {
-        ReviewModel review = entityManager.find(ReviewModel.class, reviewId);
-        if (review == null) {
+        int updatedCount = entityManager.createQuery(
+                        "UPDATE ReviewModel r SET r.status = :status WHERE r.id = :id")
+                .setParameter("status", newStatus)
+                .setParameter("id", reviewId)
+                .executeUpdate();
+
+        if (updatedCount == 0) {
             throw new IllegalArgumentException("Review tidak ditemukan dengan id " + reviewId);
         }
-        review.setStatus(newStatus);
-        return entityManager.merge(review);
+
+        return entityManager.find(ReviewModel.class, reviewId);
     }
+
 
     public void deleteById(UUID id) {
         ReviewModel review = entityManager.find(ReviewModel.class, id);
@@ -60,7 +68,7 @@ public class ReviewRepository {
 
     public List<ReviewModel> findAllByEventIdAndOrganizerId(UUID eventId, UUID organizerId) {
         TypedQuery<ReviewModel> query = entityManager.createQuery(
-                "SELECT r FROM ReviewModel r WHERE r.eventId = :eventId AND r.userId = :organizerId",
+                "SELECT r FROM ReviewModel r WHERE r.eventId = :eventId AND r.organizerId = :organizerId",
                 ReviewModel.class);
         query.setParameter("eventId", eventId);
         query.setParameter("organizerId", organizerId);
@@ -70,9 +78,10 @@ public class ReviewRepository {
     public List<ReviewModel> findAllByStatus(ReviewStatus status) {
         TypedQuery<ReviewModel> query = entityManager.createQuery(
                 "SELECT r FROM ReviewModel r WHERE r.status = :status", ReviewModel.class);
-        query.setParameter("status", status.name());
+        query.setParameter("status", status);
         return query.getResultList();
     }
+
 
     public List<ReviewModel> findAllByEventIdAndStatus(UUID eventId, ReviewStatus status) {
         TypedQuery<ReviewModel> query = entityManager.createQuery(
@@ -82,4 +91,20 @@ public class ReviewRepository {
         query.setParameter("status", status);
         return query.getResultList();
     }
+
+    public Optional<ReviewModel> findByUserIdAndEventId(UUID userId, UUID eventId) {
+        TypedQuery<ReviewModel> query = entityManager.createQuery(
+                "SELECT r FROM ReviewModel r WHERE r.userId = :userId AND r.eventId = :eventId",
+                ReviewModel.class);
+        query.setParameter("userId", userId);
+        query.setParameter("eventId", eventId);
+
+        List<ReviewModel> results = query.getResultList();
+        if (results.isEmpty()) {
+            return Optional.empty();
+        } else {
+            return Optional.of(results.get(0));
+        }
+    }
+
 }

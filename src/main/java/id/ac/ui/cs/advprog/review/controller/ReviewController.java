@@ -51,7 +51,7 @@ public class ReviewController {
                 .build();
     }
     @PostMapping
-    @PreAuthorize("hasAuthority('User')")
+    @PreAuthorize("hasAuthority('Attendee')")
     @ResponseStatus(HttpStatus.CREATED)
     public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request, Authentication auth) {
         request.setUserId(UUID.fromString(auth.getName()));
@@ -71,7 +71,7 @@ public class ReviewController {
     }
 
     @PutMapping("update/{id}")
-    @PreAuthorize("hasAuthority('User')")
+    @PreAuthorize("hasAuthority('Attendee')")
     public ReviewResponseDTO<ReviewDTO> updateReview(@PathVariable UUID id,
                                                      @RequestBody ReviewDTO request,
                                                      Authentication auth) {
@@ -103,7 +103,7 @@ public class ReviewController {
     }
 
     @DeleteMapping("delete/{id}")
-    @PreAuthorize("hasAuthority('User') or hasAuthority('Admin')")
+    @PreAuthorize("hasAuthority('Attendee') or hasAuthority('Admin')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id, Authentication auth) {
         ReviewModel existing = repository.findById(id);
@@ -129,7 +129,7 @@ public class ReviewController {
     }
 
     @GetMapping("/event/{eventId}")
-    @PreAuthorize("hasAuthority('User') or hasAuthority('Admin') or permitAll()")
+    @PreAuthorize("hasAuthority('Attendee') or hasAuthority('Admin') or permitAll()")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsByEventId(@PathVariable UUID eventId) {
         List<ReviewDTO> list = reviewService.getReviewsByEventId(eventId)
                 .stream()
@@ -168,7 +168,6 @@ public class ReviewController {
     }
 
     @GetMapping("/event/{eventId}/average")
-    // @PreAuthorize("hasAuthority('Admin')")
     public ReviewResponseDTO<AverageRatingResponseDTO> getAverageRating(@PathVariable UUID eventId) {
         Double avg = reviewService.calculateEventAverageRating(eventId);
         AverageRatingResponseDTO payload = AverageRatingResponseDTO.builder()

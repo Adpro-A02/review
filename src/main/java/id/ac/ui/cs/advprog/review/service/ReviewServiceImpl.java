@@ -138,8 +138,7 @@ public class ReviewServiceImpl implements ReviewService{
             throw new IllegalStateException("Review hanya bisa di-flag jika statusnya APPROVED.");
         }
 
-        ReviewModel flaggedReview = repository.updateStatus(reviewId, ReviewStatus.FLAGGED);
-        return flaggedReview;
+        return repository.updateStatus(reviewId, ReviewStatus.FLAGGED);
     }
 
     public List<ReviewModel> getReviewsByStatus(ReviewStatus status) {

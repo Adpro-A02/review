@@ -16,5 +16,6 @@ public interface ReviewService {
     List<ReviewModel> getReviewsForOrganizer(UUID eventId, UUID organizerId);
     ReviewModel flagReview(UUID reviewId, String role);
     List<ReviewModel> getReviewsByStatus(ReviewStatus status);
+    ReviewModel cancelFlag(UUID reviewId, String role);
 }
 

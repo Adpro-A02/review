@@ -229,4 +229,35 @@ public class ReviewController {
                 .build();
     }
 
+    @PutMapping("/{reviewId}/cancel-flag")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewDTO> cancelFlagReview(@PathVariable UUID reviewId,
+                                                         Authentication auth) {
+        try {
+            String role = auth.getAuthorities().stream()
+                    .findFirst()
+                    .map(a -> a.getAuthority())
+                    .orElse("");
+
+            ReviewModel updatedReview = reviewService.cancelFlag(reviewId, role);
+            ReviewDTO dto = toDTO(updatedReview);
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Flag review berhasil dibatalkan.")
+                    .data(dto)
+                    .build();
+        } catch (SecurityException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
+    }
 }

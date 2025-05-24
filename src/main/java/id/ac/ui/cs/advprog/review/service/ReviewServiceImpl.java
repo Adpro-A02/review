@@ -148,4 +148,23 @@ public class ReviewServiceImpl implements ReviewService{
             throw new RuntimeException("Error saat mengambil review berdasarkan status: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    @Transactional
+    public ReviewModel cancelFlag(UUID reviewId, String role) {
+        if (!"Organizer".equalsIgnoreCase(role)) {
+            throw new SecurityException("Hanya organizer yang dapat membatalkan flag review.");
+        }
+
+        ReviewModel review = repository.findById(reviewId);
+        if (review == null) {
+            throw new IllegalArgumentException("Review tidak ditemukan dengan id " + reviewId);
+        }
+
+        if (review.getStatus() != ReviewStatus.FLAGGED) {
+            throw new IllegalStateException("Review hanya bisa dibatalkan flag-nya jika statusnya FLAGGED.");
+        }
+        return repository.updateStatus(reviewId, ReviewStatus.APPROVED);
+    }
+
 }

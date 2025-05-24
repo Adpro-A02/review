@@ -22,7 +22,7 @@ public class ReviewServiceImpl implements ReviewService{
     private final ReviewRepository repository;
     private final NotificationService notificationService;
 
-    @Async
+    @Async("taskExecutor")
     @Transactional
     public CompletableFuture<ReviewModel> createReview(ReviewModel model) {
         Optional<ReviewModel> existingReview = repository.findByUserIdAndEventId(model.getUserId(), model.getEventId());

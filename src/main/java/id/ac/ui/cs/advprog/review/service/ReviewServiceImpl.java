@@ -121,7 +121,6 @@ public class ReviewServiceImpl implements ReviewService{
         }
     }
 
-
     @Override
     @Transactional
     public ReviewModel flagReview(UUID reviewId, String role) {

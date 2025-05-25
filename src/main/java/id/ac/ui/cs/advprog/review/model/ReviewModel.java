@@ -44,6 +44,7 @@ public class ReviewModel {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private ReviewStatus status = ReviewStatus.APPROVED;
 
     @Version

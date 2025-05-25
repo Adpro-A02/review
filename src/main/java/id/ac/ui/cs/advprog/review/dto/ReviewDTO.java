@@ -22,5 +22,4 @@ public class ReviewDTO {
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
     private ReviewStatus status;
-
 }

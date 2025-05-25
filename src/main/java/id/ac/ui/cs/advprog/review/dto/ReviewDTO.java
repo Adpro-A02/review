@@ -16,6 +16,7 @@ public class ReviewDTO {
     private UUID id;
     private UUID eventId;
     private UUID userId;
+    private UUID organizerId;
     private Integer rating;
     private String comment;
     private LocalDateTime createdDate;

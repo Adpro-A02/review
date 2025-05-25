@@ -1,18 +1,15 @@
-// src/main/java/id/ac/ui/cs/advprog/review/controller/ReviewController.java
 package id.ac.ui.cs.advprog.review.controller;
 
-import id.ac.ui.cs.advprog.review.dto.ReviewDTO;
-import id.ac.ui.cs.advprog.review.dto.ReviewResponseDTO;
-import id.ac.ui.cs.advprog.review.dto.ReviewsByEventResponseDTO;
-import id.ac.ui.cs.advprog.review.dto.AverageRatingResponseDTO;
+import id.ac.ui.cs.advprog.review.dto.*;
 import id.ac.ui.cs.advprog.review.enums.ReviewStatus;
 import id.ac.ui.cs.advprog.review.model.ReviewModel;
-import id.ac.ui.cs.advprog.review.service.ReviewService;
 import id.ac.ui.cs.advprog.review.repository.ReviewRepository;
+import id.ac.ui.cs.advprog.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,6 +27,7 @@ public class ReviewController {
                 .id(dto.getId())
                 .eventId(dto.getEventId())
                 .userId(dto.getUserId())
+                .organizerId(dto.getOrganizerId())
                 .rating(dto.getRating())
                 .comment(dto.getComment())
                 .createdDate(dto.getCreatedDate())
@@ -44,6 +42,7 @@ public class ReviewController {
                 .id(model.getId())
                 .eventId(model.getEventId())
                 .userId(model.getUserId())
+                .organizerId(model.getOrganizerId())
                 .rating(model.getRating())
                 .comment(model.getComment())
                 .createdDate(model.getCreatedDate())
@@ -51,16 +50,19 @@ public class ReviewController {
                 .status(model.getStatus())
                 .build();
     }
-
     @PostMapping
+    @PreAuthorize("hasAuthority('Attendee')")
     @ResponseStatus(HttpStatus.CREATED)
-    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request) {
+    public ReviewResponseDTO<ReviewDTO> createReview(@RequestBody ReviewDTO request, Authentication auth) {
+        request.setUserId(UUID.fromString(auth.getName()));
         ReviewModel model = toEntity(request);
         if (model.getStatus() == null) {
             model.setStatus(ReviewStatus.APPROVED);
         }
-        ReviewModel saved = reviewService.createReview(model);
+
+        ReviewModel saved = reviewService.createReview(model).join();
         ReviewDTO dto = toDTO(saved);
+
         return ReviewResponseDTO.<ReviewDTO>builder()
                 .success(true)
                 .message("Review berhasil dibuat")
@@ -68,11 +70,11 @@ public class ReviewController {
                 .build();
     }
 
-    @PutMapping("/{id}")
-    public ReviewResponseDTO<ReviewDTO> updateReview(
-            @PathVariable UUID id,
-            @RequestBody ReviewDTO request
-    ) {
+    @PutMapping("update/{id}")
+    @PreAuthorize("hasAuthority('Attendee')")
+    public ReviewResponseDTO<ReviewDTO> updateReview(@PathVariable UUID id,
+                                                     @RequestBody ReviewDTO request,
+                                                     Authentication auth) {
         ReviewModel existing = repository.findById(id);
         if (existing == null) {
             return ReviewResponseDTO.<ReviewDTO>builder()
@@ -81,6 +83,13 @@ public class ReviewController {
                     .data(null)
                     .build();
         }
+        if (!existing.getUserId().toString().equals(auth.getName())) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message("Tidak bisa memperbarui review milik orang lain")
+                    .build();
+        }
+
         if (request.getRating() != null) existing.setRating(request.getRating());
         if (request.getComment() != null) existing.setComment(request.getComment());
 
@@ -93,18 +102,34 @@ public class ReviewController {
                 .build();
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("delete/{id}")
+    @PreAuthorize("hasAuthority('Attendee') or hasAuthority('Admin')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id) {
+    public ReviewResponseDTO<Void> deleteReview(@PathVariable UUID id, Authentication auth) {
+        ReviewModel existing = repository.findById(id);
+        if (existing == null) {
+            return ReviewResponseDTO.<Void>builder()
+                    .success(false)
+                    .message("Review dengan ID " + id + " tidak ditemukan")
+                    .build();
+        }
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Admin"));
+        boolean isOwner = existing.getUserId().toString().equals(auth.getName());
+        if (!isAdmin && !isOwner) {
+            return ReviewResponseDTO.<Void>builder()
+                    .success(false)
+                    .message("Tidak bisa menghapus review milik orang lain")
+                    .build();
+        }
         reviewService.deleteReview(id);
         return ReviewResponseDTO.<Void>builder()
                 .success(true)
                 .message("Review berhasil dihapus")
-                .data(null)
                 .build();
     }
 
     @GetMapping("/event/{eventId}")
+    @PreAuthorize("hasAuthority('Attendee') or hasAuthority('Admin') or permitAll()")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsByEventId(@PathVariable UUID eventId) {
         List<ReviewDTO> list = reviewService.getReviewsByEventId(eventId)
                 .stream()
@@ -121,6 +146,27 @@ public class ReviewController {
                 .build();
     }
 
+    @GetMapping("/event-reviews/my/{eventId}")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsForOrganizer(@PathVariable UUID eventId, Authentication auth) {
+        UUID organizerId = UUID.fromString(auth.getName());
+        List<ReviewDTO> list = reviewService.getReviewsForOrganizer(eventId, organizerId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        ReviewsByEventResponseDTO payload = ReviewsByEventResponseDTO.builder()
+                .eventId(eventId)
+                .reviews(list)
+                .build();
+
+        return ReviewResponseDTO.<ReviewsByEventResponseDTO>builder()
+                .success(true)
+                .message("Daftar review untuk organizer")
+                .data(payload)
+                .build();
+    }
+
     @GetMapping("/event/{eventId}/average")
     public ReviewResponseDTO<AverageRatingResponseDTO> getAverageRating(@PathVariable UUID eventId) {
         Double avg = reviewService.calculateEventAverageRating(eventId);
@@ -133,5 +179,84 @@ public class ReviewController {
                 .message("Rata-rata rating untuk event " + eventId)
                 .data(payload)
                 .build();
+    }
+
+    @PutMapping("/{reviewId}/flag")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewDTO> flagReview(@PathVariable UUID reviewId,
+                                                   Authentication auth) {
+        try {
+            String role = auth.getAuthorities().stream()
+                    .findFirst()
+                    .map(a -> a.getAuthority())
+                    .orElse("");
+
+            ReviewModel flaggedReview = reviewService.flagReview(reviewId, role);
+            ReviewDTO dto = toDTO(flaggedReview);
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Review berhasil di-flag.")
+                    .data(dto)
+                    .build();
+        } catch (SecurityException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
+    }
+
+    @GetMapping("/flagged")
+    @PreAuthorize("hasAuthority('Admin')")
+    public ReviewResponseDTO<List<ReviewDTO>> getFlaggedReviews() {
+        List<ReviewDTO> flaggedReviews = reviewService.getReviewsByStatus(ReviewStatus.FLAGGED)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return ReviewResponseDTO.<List<ReviewDTO>>builder()
+                .success(true)
+                .message("Daftar review dengan status FLAGGED")
+                .data(flaggedReviews)
+                .build();
+    }
+
+    @PutMapping("/{reviewId}/cancel-flag")
+    @PreAuthorize("hasAuthority('Organizer')")
+    public ReviewResponseDTO<ReviewDTO> cancelFlagReview(@PathVariable UUID reviewId,
+                                                         Authentication auth) {
+        try {
+            String role = auth.getAuthorities().stream()
+                    .findFirst()
+                    .map(a -> a.getAuthority())
+                    .orElse("");
+
+            ReviewModel updatedReview = reviewService.cancelFlag(reviewId, role);
+            ReviewDTO dto = toDTO(updatedReview);
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Flag review berhasil dibatalkan.")
+                    .data(dto)
+                    .build();
+        } catch (SecurityException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
     }
 }

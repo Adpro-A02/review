@@ -12,7 +12,7 @@ import java.util.UUID;
 @Table(name = "reviews")
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 @EqualsAndHashCode(of = "id")
 public class ReviewModel {
     @Id

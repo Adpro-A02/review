@@ -18,4 +18,3 @@ public interface ReviewService {
     List<ReviewModel> getReviewsByStatus(ReviewStatus status);
     ReviewModel cancelFlag(UUID reviewId, String role);
 }
-

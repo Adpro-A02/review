@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
-
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService{
@@ -52,25 +51,6 @@ public class ReviewServiceImpl implements ReviewService{
             repository.deleteById(id);
         } catch (PersistenceException e) {
             throw new RuntimeException("Error deleting review: " + e.getMessage(), e);
-        }
-    }
-
-    public ReviewModel approveReview(UUID reviewId) {
-        ReviewModel review = repository.findById(reviewId);
-        if (review == null) {
-            throw new RuntimeException("Review tidak ditemukan dengan id: " + reviewId);
-        }
-
-        if (!validateReview(review)) {
-            throw new RuntimeException("Review tidak valid dan tidak bisa di-approve.");
-        }
-
-        try {
-            ReviewModel updatedReview = repository.updateStatus(reviewId, ReviewStatus.APPROVED);
-            notificationService.sendReviewApprovedNotification(updatedReview);
-            return updatedReview;
-        } catch (PersistenceException e) {
-            throw new RuntimeException("Gagal approve review: " + e.getMessage(), e);
         }
     }
 
@@ -166,4 +146,71 @@ public class ReviewServiceImpl implements ReviewService{
         return repository.updateStatus(reviewId, ReviewStatus.APPROVED);
     }
 
+    @Override
+    public List<ReviewModel> getReviewsByUserId(UUID userId) {
+        try {
+            return repository.findAllByUserId(userId);
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error saat mengambil reviews untuk user: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public ReviewModel getReviewByUserIdAndEventId(UUID userId, UUID eventId) {
+        try {
+            Optional<ReviewModel> review = repository.findByUserIdAndEventId(userId, eventId);
+            if (review.isEmpty()) {
+                throw new RuntimeException("Review tidak ditemukan untuk user " + userId + " dan event " + eventId);
+            }
+            return review.get();
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error saat mengambil review: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public ReviewModel updateReviewByUserIdAndEventId(UUID userId, UUID eventId, ReviewModel updatedReview) {
+        try {
+            Optional<ReviewModel> existingReviewOpt = repository.findByUserIdAndEventId(userId, eventId);
+            if (existingReviewOpt.isEmpty()) {
+                throw new RuntimeException("Review tidak ditemukan untuk user " + userId + " dan event " + eventId);
+            }
+
+            ReviewModel existingReview = existingReviewOpt.get();
+
+            if (updatedReview.getRating() != null) {
+                existingReview.setRating(updatedReview.getRating());
+            }
+            if (updatedReview.getComment() != null && !updatedReview.getComment().trim().isEmpty()) {
+                existingReview.setComment(updatedReview.getComment());
+            }
+
+            if (!validateReview(existingReview)) {
+                throw new RuntimeException("Review tidak valid untuk diperbarui");
+            }
+
+            ReviewModel savedReview = repository.save(existingReview);
+            notificationService.sendReviewApprovedNotification(savedReview);
+            return savedReview;
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error updating review: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteReviewByUserIdAndEventId(UUID userId, UUID eventId) {
+        try {
+            Optional<ReviewModel> reviewOpt = repository.findByUserIdAndEventId(userId, eventId);
+            if (reviewOpt.isEmpty()) {
+                throw new RuntimeException("Review tidak ditemukan untuk user " + userId + " dan event " + eventId);
+            }
+
+            ReviewModel review = reviewOpt.get();
+            repository.deleteById(review.getId());
+        } catch (PersistenceException e) {
+            throw new RuntimeException("Error deleting review: " + e.getMessage(), e);
+        }
+    }
 }

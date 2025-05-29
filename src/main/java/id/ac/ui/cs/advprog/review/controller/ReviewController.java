@@ -50,6 +50,7 @@ public class ReviewController {
                 .status(model.getStatus())
                 .build();
     }
+
     @PostMapping
     @PreAuthorize("hasAuthority('Attendee')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -66,38 +67,6 @@ public class ReviewController {
         return ReviewResponseDTO.<ReviewDTO>builder()
                 .success(true)
                 .message("Review berhasil dibuat")
-                .data(dto)
-                .build();
-    }
-
-    @PutMapping("update/{id}")
-    @PreAuthorize("hasAuthority('Attendee')")
-    public ReviewResponseDTO<ReviewDTO> updateReview(@PathVariable UUID id,
-                                                     @RequestBody ReviewDTO request,
-                                                     Authentication auth) {
-        ReviewModel existing = repository.findById(id);
-        if (existing == null) {
-            return ReviewResponseDTO.<ReviewDTO>builder()
-                    .success(false)
-                    .message("Review dengan ID " + id + " tidak ditemukan")
-                    .data(null)
-                    .build();
-        }
-        if (!existing.getUserId().toString().equals(auth.getName())) {
-            return ReviewResponseDTO.<ReviewDTO>builder()
-                    .success(false)
-                    .message("Tidak bisa memperbarui review milik orang lain")
-                    .build();
-        }
-
-        if (request.getRating() != null) existing.setRating(request.getRating());
-        if (request.getComment() != null) existing.setComment(request.getComment());
-
-        ReviewModel updated = reviewService.updateReview(existing);
-        ReviewDTO dto = toDTO(updated);
-        return ReviewResponseDTO.<ReviewDTO>builder()
-                .success(true)
-                .message("Review berhasil diperbarui")
                 .data(dto)
                 .build();
     }
@@ -128,8 +97,94 @@ public class ReviewController {
                 .build();
     }
 
+    @GetMapping("/my-review/event/{eventId}")
+    @PreAuthorize("hasAuthority('Attendee')")
+    public ReviewResponseDTO<ReviewDTO> getMyReviewForEvent(@PathVariable UUID eventId, 
+                                                            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        try {
+            ReviewModel review = reviewService.getReviewByUserIdAndEventId(userId, eventId);
+            ReviewDTO dto = toDTO(review);
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Review Anda untuk event " + eventId)
+                    .data(dto)
+                    .build();
+        } catch (RuntimeException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
+    }
+
+    @PutMapping("/my-review/event/{eventId}")
+    @PreAuthorize("hasAuthority('Attendee')")
+    public ReviewResponseDTO<ReviewDTO> updateMyReviewForEvent(@PathVariable UUID eventId,
+                                                               @RequestBody ReviewDTO request,
+                                                               Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        try {
+            ReviewModel updateData = ReviewModel.builder()
+                    .rating(request.getRating())
+                    .comment(request.getComment())
+                    .build();
+            
+            ReviewModel updated = reviewService.updateReviewByUserIdAndEventId(userId, eventId, updateData);
+            ReviewDTO dto = toDTO(updated);
+            
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(true)
+                    .message("Review berhasil diperbarui")
+                    .data(dto)
+                    .build();
+        } catch (RuntimeException e) {
+            return ReviewResponseDTO.<ReviewDTO>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build();
+        }
+    }
+
+    @DeleteMapping("/my-review/event/{eventId}")
+    @PreAuthorize("hasAuthority('Attendee')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ReviewResponseDTO<Void> deleteMyReviewForEvent(@PathVariable UUID eventId,
+                                                          Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        try {
+            reviewService.deleteReviewByUserIdAndEventId(userId, eventId);
+            return ReviewResponseDTO.<Void>builder()
+                    .success(true)
+                    .message("Review berhasil dihapus")
+                    .build();
+        } catch (RuntimeException e) {
+            return ReviewResponseDTO.<Void>builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build();
+        }
+    }
+
+    @GetMapping("/my-reviews")
+    @PreAuthorize("hasAuthority('Attendee')")
+    public ReviewResponseDTO<List<ReviewDTO>> getMyReviews(Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        List<ReviewDTO> reviews = reviewService.getReviewsByUserId(userId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return ReviewResponseDTO.<List<ReviewDTO>>builder()
+                .success(true)
+                .message("Daftar semua review Anda")
+                .data(reviews)
+                .build();
+    }
+
     @GetMapping("/event/{eventId}")
-    @PreAuthorize("hasAuthority('Attendee') or hasAuthority('Admin') or permitAll()")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsByEventId(@PathVariable UUID eventId) {
         List<ReviewDTO> list = reviewService.getReviewsByEventId(eventId)
                 .stream()
@@ -149,8 +204,8 @@ public class ReviewController {
     @GetMapping("/event-reviews/my/{eventId}")
     @PreAuthorize("hasAuthority('Organizer')")
     public ReviewResponseDTO<ReviewsByEventResponseDTO> getReviewsForOrganizer(@PathVariable UUID eventId, Authentication auth) {
-        UUID organizerId = UUID.fromString(auth.getName());
-        List<ReviewDTO> list = reviewService.getReviewsForOrganizer(eventId, organizerId)
+        UUID userId = UUID.fromString(auth.getName());
+        List<ReviewDTO> list = reviewService.getReviewsForOrganizer(eventId, userId)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
@@ -258,5 +313,5 @@ public class ReviewController {
                     .data(null)
                     .build();
         }
-    }
+}
 }
